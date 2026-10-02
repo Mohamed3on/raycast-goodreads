@@ -7,6 +7,7 @@ export interface Book {
   };
   thumbnail: string;
   rating?: string;
+  ratingsCount?: number;
 }
 
 export interface Review {

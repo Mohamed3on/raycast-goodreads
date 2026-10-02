@@ -57,6 +57,7 @@ interface GoodreadsAutoCompleteBook {
   bookUrl: string;
   title: string;
   avgRating?: string;
+  ratingsCount?: number;
   author?: {
     name?: string;
   };
@@ -89,6 +90,7 @@ export const fetchBooksByTitle = async (title: string): Promise<ApiResponse<Book
       title: book.title,
       author: book.author?.name ?? "",
       rating: book.avgRating,
+      ratingsCount: book.ratingsCount,
       contentUrl: { detailsPage: getDetailsPagePath(book.bookUrl) },
     }));
 
