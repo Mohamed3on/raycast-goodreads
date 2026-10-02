@@ -7,15 +7,21 @@ import {
   Keyboard,
   PopToRootType,
   closeMainWindow,
+  getPreferenceValues,
   getSelectedText,
   open,
 } from "@raycast/api";
-import { useCachedPromise } from "@raycast/utils";
+import { useCachedPromise, usePromise } from "@raycast/utils";
 import { fetchBooksByTitle, getDetailsPageUrl } from "./goodreads-api";
 import type { Book } from "./types";
 import BookDetails from "./book-details";
 import { STRINGS } from "./strings";
 import { useRecentlyViewedBooks } from "./useRecentlyViewedBooks";
+import { guessNamedBook, typesafeKey } from "./jev";
+
+/** Jev's guess at the book a selection names (see guessNamedBook), with this extension's key. */
+const guessSelectedBook = (books: Book[], selection: string) =>
+  guessNamedBook(books, selection, typesafeKey(getPreferenceValues<Preferences>().typesafeApiKey));
 
 interface SearchBooksPageProps {
   arguments: {
@@ -45,7 +51,17 @@ export default function SearchBooksPage(props: SearchBooksPageProps) {
   });
   const { recentlyViewedBooks, addRecentView, clearAllRecentViews, clearRecentlyViewedBook } = useRecentlyViewedBooks();
 
-  const namedBook = selection && selection === trimmedQuery ? findNamedBook(data?.data ?? [], selection) : undefined;
+  const results = data?.data;
+  const onSelection = !!selection && selection === trimmedQuery;
+  const titleMatch = onSelection ? findNamedBook(results ?? [], selection) : undefined;
+  // No title matches the selection outright: Jev picks the result it names while the results show, loading. A sure
+  // pick opens like a title match, unless the user has moved in the list meanwhile; a clear lead is preselected.
+  const [moved, setMoved] = useState(false);
+  const { data: guess, isLoading: isGuessing } = usePromise(guessSelectedBook, [results ?? [], selection ?? ""], {
+    execute: onSelection && !titleMatch && !!results?.length,
+  });
+  const guessed = onSelection && !titleMatch && !moved && guess && results?.includes(guess.book) ? guess : undefined;
+  const namedBook = titleMatch ?? (guessed?.sure ? guessed.book : undefined);
   const namedBookUrl = namedBook && getDetailsPageUrl(namedBook.contentUrl.detailsPage);
   useEffect(() => {
     if (namedBookUrl) open(namedBookUrl).then(() => closeMainWindow({ popToRootType: PopToRootType.Immediate }));
@@ -73,11 +89,15 @@ export default function SearchBooksPage(props: SearchBooksPageProps) {
 
   return (
     <List
-      isLoading={isLoading}
+      isLoading={isLoading || isGuessing}
       searchText={searchQuery}
       throttle
       searchBarPlaceholder={STRINGS.searchBooksPlaceholder}
       onSearchTextChange={setSearch}
+      selectedItemId={guessed?.book.id}
+      onSelectionChange={(id) => {
+        if (id && id !== results?.[0]?.id && id !== guessed?.book.id) setMoved(true);
+      }}
     >
       <List.Section title={sectionTitle}>
         {books?.map((book) => (
@@ -137,6 +157,7 @@ function BookItem(props: BookItemProps) {
 
   return (
     <List.Item
+      id={book.id}
       title={title}
       subtitle={author}
       accessories={[{ text: `${rating} ⭐️` }]}

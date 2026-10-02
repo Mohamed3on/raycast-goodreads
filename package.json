@@ -49,6 +49,15 @@
       ]
     }
   ],
+  "preferences": [
+    {
+      "name": "typesafeApiKey",
+      "title": "TypeSafe API Key",
+      "description": "Optional. When a selected title isn't an exact match (a typo, a series tag, a partial title), TypeSafe's Jev picks the book it names. Falls back to TYPESAFE_API_KEY in ~/.config/typesafe/env.",
+      "type": "password",
+      "required": false
+    }
+  ],
   "dependencies": {
     "@raycast/api": "^1.103.0",
     "@raycast/utils": "^1.8.0",
